@@ -53,8 +53,8 @@ jobs:
             --window-size 800 400 \
             --icon-size 100 \
             --app-drop-link 600 185 \
-            "dist/app.app" \
-            "dist-dmg/MachineTEST2.dmg"
+            dist/app.app \
+            --out dist-dmg
 
       - name: Upload du .dmg comme artefact
         uses: actions/upload-artifact@v4
