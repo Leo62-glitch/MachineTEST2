@@ -47,6 +47,7 @@ jobs:
       - name: Créer un fichier .dmg
         run: |
           mkdir -p dist-dmg
+          DMG_PATH=$(pwd)/dist-dmg/MachineTEST2.dmg
           create-dmg \
             --volname "MachineTEST2" \
             --window-pos 200 120 \
@@ -54,11 +55,10 @@ jobs:
             --icon-size 100 \
             --app-drop-link 600 185 \
             dist/app.app \
-            dist-dmg/MachineTEST2.dmg
+            "$DMG_PATH"
 
       - name: Upload du .dmg comme artefact
         uses: actions/upload-artifact@v4
         with:
           name: MachineTEST2.dmg
           path: dist-dmg/MachineTEST2.dmg
-
