@@ -12,13 +12,11 @@ jobs:
       - name: Cloner le dépôt
         uses: actions/checkout@v3
 
-      - name: Installer Python et pip
+      - name: Créer un environnement virtuel Python
         run: |
-          python3 -m ensurepip
-          python3 -m pip install --upgrade pip setuptools wheel
-
-      - name: Installer py2app
-        run: pip install py2app
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip setuptools wheel py2app
 
       - name: Créer le fichier setup.py
         run: |
@@ -38,13 +36,15 @@ jobs:
           )
           EOF
 
-      - name: Créer l'application .app
-        run: python3 setup.py py2app
+      - name: Packager en .app avec py2app
+        run: |
+          source venv/bin/activate
+          python setup.py py2app
 
       - name: Installer create-dmg
         run: brew install create-dmg
 
-      - name: Créer le fichier .dmg
+      - name: Créer un fichier .dmg
         run: |
           mkdir dist-dmg
           create-dmg \
