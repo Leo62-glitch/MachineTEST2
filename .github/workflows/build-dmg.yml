@@ -1,4 +1,4 @@
-name: Convertir app.py en .dmg
+name: Build and package MachineTEST2 as DMG
 
 on:
   push:
@@ -9,62 +9,59 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: Cloner le dépôt
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Trouver app.py dans le dépôt
+      - name: Find app.py path
         id: find_app
         run: |
           APP_PATH=$(find . -name app.py | head -n 1)
           echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
 
-      - name: Nettoyer builds précédents
+      - name: Clean previous builds
         run: rm -rf build dist *.egg-info
 
-      - name: Créer un environnement virtuel Python 3.11
+      - name: Setup Python 3.11 virtual environment
         run: |
           python3.11 -m venv venv
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel py2app
 
-      - name: Créer le fichier setup.py
+      - name: Create setup.py dynamically
         run: |
           echo "from setuptools import setup" > setup.py
           echo "APP = ['$APP_PATH']" >> setup.py
-          echo "OPTIONS = {'argv_emulation': True, 'packages': []}" >> setup.py
+          echo "OPTIONS = {'argv_emulation': True}" >> setup.py
           echo "setup(app=APP, options={'py2app': OPTIONS}, setup_requires=['py2app'])" >> setup.py
         env:
           APP_PATH: ${{ steps.find_app.outputs.app_path }}
 
-      - name: Packager en .app avec py2app
+      - name: Build .app with py2app
         run: |
           source venv/bin/activate
           python setup.py py2app
 
-      - name: Installer create-dmg
-        run: brew install create-dmg
-
-      - name: Debug fichiers dist
+      - name: Debug dist folder contents
         run: ls -l dist
 
-      - name: Créer un fichier .dmg
+      - name: Create DMG with hdiutil
         run: |
           mkdir -p dist-dmg
           if [ ! -d dist/app.app ]; then
-            echo "Erreur : dist/app.app n'existe pas !"
+            echo "Error: dist/app.app not found!"
             exit 1
           fi
-          create-dmg \
-            --volname "MachineTEST2" \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --icon-size 100 \
-            --app-drop-link 600 185 \
-            dist/app.app \
-            dist-dmg/MachineTEST2.dmg
 
-      - name: Upload du .dmg comme artefact
+          mkdir -p temp_dmg
+          cp -R dist/app.app temp_dmg/
+
+          hdiutil create -volname "MachineTEST2" -srcfolder temp_dmg -ov -format UDZO dist-dmg/MachineTEST2.dmg
+
+          rm -rf temp_dmg
+
+      - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: MachineTEST2.dmg
           path: dist-dmg/MachineTEST2.dmg
+
