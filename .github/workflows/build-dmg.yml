@@ -1,0 +1,63 @@
+name: Convertir app.py en .dmg
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-dmg:
+    runs-on: macos-latest
+
+    steps:
+      - name: Cloner le dépôt
+        uses: actions/checkout@v3
+
+      - name: Installer Python et pip
+        run: |
+          python3 -m ensurepip
+          python3 -m pip install --upgrade pip setuptools wheel
+
+      - name: Installer py2app
+        run: pip install py2app
+
+      - name: Créer le fichier setup.py
+        run: |
+          cat <<EOF > setup.py
+          from setuptools import setup
+
+          APP = ['.github/app.py']
+          OPTIONS = {
+              'argv_emulation': True,
+              'packages': [],
+          }
+
+          setup(
+              app=APP,
+              options={'py2app': OPTIONS},
+              setup_requires=['py2app'],
+          )
+          EOF
+
+      - name: Créer l'application .app
+        run: python3 setup.py py2app
+
+      - name: Installer create-dmg
+        run: brew install create-dmg
+
+      - name: Créer le fichier .dmg
+        run: |
+          mkdir dist-dmg
+          create-dmg \
+            --volname "MachineTEST2" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --app-drop-link 600 185 \
+            "dist/app.app" \
+            "dist-dmg/MachineTEST2.dmg"
+
+      - name: Upload du .dmg comme artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MachineTEST2.dmg
+          path: dist-dmg/MachineTEST2.dmg
