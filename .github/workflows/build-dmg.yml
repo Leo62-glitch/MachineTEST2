@@ -44,10 +44,16 @@ jobs:
       - name: Installer create-dmg
         run: brew install create-dmg
 
+      - name: Debug fichiers dist
+        run: ls -l dist
+
       - name: Créer un fichier .dmg
         run: |
           mkdir -p dist-dmg
-          DMG_PATH=$(pwd)/dist-dmg/MachineTEST2.dmg
+          if [ ! -d dist/app.app ]; then
+            echo "Erreur : dist/app.app n'existe pas !"
+            exit 1
+          fi
           create-dmg \
             --volname "MachineTEST2" \
             --window-pos 200 120 \
@@ -55,7 +61,7 @@ jobs:
             --icon-size 100 \
             --app-drop-link 600 185 \
             dist/app.app \
-            "$DMG_PATH"
+            dist-dmg/MachineTEST2.dmg
 
       - name: Upload du .dmg comme artefact
         uses: actions/upload-artifact@v4
