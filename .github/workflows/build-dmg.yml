@@ -12,6 +12,12 @@ jobs:
       - name: Cloner le dépôt
         uses: actions/checkout@v3
 
+      - name: Trouver app.py dans le dépôt
+        id: find_app
+        run: |
+          APP_PATH=$(find . -name app.py | head -n 1)
+          echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
+
       - name: Créer un environnement virtuel Python
         run: |
           python3 -m venv venv
@@ -20,21 +26,12 @@ jobs:
 
       - name: Créer le fichier setup.py
         run: |
-          cat <<EOF > setup.py
-          from setuptools import setup
-
-          APP = ['.github/app.py']
-          OPTIONS = {
-              'argv_emulation': True,
-              'packages': [],
-          }
-
-          setup(
-              app=APP,
-              options={'py2app': OPTIONS},
-              setup_requires=['py2app'],
-          )
-          EOF
+          echo "from setuptools import setup" > setup.py
+          echo "APP = ['$APP_PATH']" >> setup.py
+          echo "OPTIONS = {'argv_emulation': True, 'packages': []}" >> setup.py
+          echo "setup(app=APP, options={'py2app': OPTIONS}, setup_requires=['py2app'])" >> setup.py
+        env:
+          APP_PATH: ${{ steps.find_app.outputs.app_path }}
 
       - name: Packager en .app avec py2app
         run: |
@@ -61,3 +58,4 @@ jobs:
         with:
           name: MachineTEST2.dmg
           path: dist-dmg/MachineTEST2.dmg
+
