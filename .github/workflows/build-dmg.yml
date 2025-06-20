@@ -12,6 +12,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Find app.py path
         id: find_app
         run: |
@@ -19,11 +24,11 @@ jobs:
           echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
 
       - name: Clean previous builds
-        run: rm -rf build dist *.egg-info venv setup.py
+        run: rm -rf build dist *.egg-info setup.py
 
-      - name: Setup Python 3.11 and install dependencies
+      - name: Create virtual environment & install dependencies
         run: |
-          python3 -m venv venv
+          python -m venv venv
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel py2app
           pip install PyQt5 PyQtWebEngine
@@ -32,10 +37,7 @@ jobs:
         run: |
           echo "from setuptools import setup" > setup.py
           echo "APP = ['${{ steps.find_app.outputs.app_path }}']" >> setup.py
-          echo "OPTIONS = {" >> setup.py
-          echo "    'argv_emulation': True," >> setup.py
-          echo "    'packages': ['PyQt5', 'PyQt5.QtWebEngineWidgets']" >> setup.py
-          echo "}" >> setup.py
+          echo "OPTIONS = {'argv_emulation': True, 'includes': ['PyQt5', 'PyQt5.QtWebEngineWidgets']}" >> setup.py
           echo "setup(app=APP, options={'py2app': OPTIONS}, setup_requires=['py2app'])" >> setup.py
 
       - name: Build .app with py2app
@@ -44,7 +46,7 @@ jobs:
           python setup.py py2app
 
       - name: Debug dist folder contents
-        run: ls -la dist
+        run: ls -l dist
 
       - name: Create DMG with hdiutil
         run: |
@@ -66,4 +68,3 @@ jobs:
         with:
           name: MachineTEST2.dmg
           path: dist-dmg/MachineTEST2.dmg
-
