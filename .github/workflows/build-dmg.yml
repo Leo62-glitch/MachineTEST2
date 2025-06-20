@@ -12,15 +12,21 @@ jobs:
       - name: Cloner le dépôt
         uses: actions/checkout@v3
 
+      - name: Installer Python 3.11
+        run: brew install python@3.11
+
       - name: Trouver app.py dans le dépôt
         id: find_app
         run: |
           APP_PATH=$(find . -name app.py | head -n 1)
           echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
 
-      - name: Créer un environnement virtuel Python
+      - name: Nettoyer builds précédents
+        run: rm -rf build dist *.egg-info
+
+      - name: Créer un environnement virtuel Python 3.11
         run: |
-          python3 -m venv venv
+          /opt/homebrew/opt/python@3.11/bin/python3 -m venv venv
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel py2app
 
@@ -43,7 +49,7 @@ jobs:
 
       - name: Créer un fichier .dmg
         run: |
-          mkdir dist-dmg
+          mkdir -p dist-dmg
           create-dmg \
             --volname "MachineTEST2" \
             --window-pos 200 120 \
@@ -58,4 +64,3 @@ jobs:
         with:
           name: MachineTEST2.dmg
           path: dist-dmg/MachineTEST2.dmg
-
