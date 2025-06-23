@@ -52,4 +52,5 @@ jobs:
           echo "🧪 Test de lancement de l'exécutable..."
           /usr/local/bin/app || { echo "❌ Erreur au lancement"; exit 1; }
           echo "✅ Lancement réussi (aucune exception détectée)."
+          
 
