@@ -1,70 +1,52 @@
-name: Build and package MachineTEST2 as DMG
+name: Build Linux Executable
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
-  build-dmg:
-    runs-on: macos-latest
+  build:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.10'
 
-      - name: Find app.py path
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          
+          # Installe les dépendances du projet si requirements.txt existe
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+          
+          # Installe PyQt5 et PyQtWebEngine explicitement
+          pip install PyQt5 PyQtWebEngine pyinstaller
+
+      - name: Find app.py
         id: find_app
         run: |
-          APP_PATH=$(find . -name app.py | head -n 1)
-          echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
-
-      - name: Clean previous builds
-        run: rm -rf build dist *.egg-info setup.py
-
-      - name: Create virtual environment & install dependencies
-        run: |
-          python -m venv venv
-          source venv/bin/activate
-          pip install --upgrade pip setuptools wheel py2app
-          pip install PyQt5 PyQtWebEngine
-
-      - name: Create setup.py dynamically
-        run: |
-          echo "from setuptools import setup" > setup.py
-          echo "APP = ['${{ steps.find_app.outputs.app_path }}']" >> setup.py
-          echo "OPTIONS = {'argv_emulation': True, 'includes': ['PyQt5', 'PyQt5.QtWebEngineWidgets']}" >> setup.py
-          echo "setup(app=APP, options={'py2app': OPTIONS}, setup_requires=['py2app'])" >> setup.py
-
-      - name: Build .app with py2app
-        run: |
-          source venv/bin/activate
-          python setup.py py2app
-
-      - name: Debug dist folder contents
-        run: ls -l dist
-
-      - name: Create DMG with hdiutil
-        run: |
-          mkdir -p dist-dmg
-          if [ ! -d dist/app.app ]; then
-            echo "Error: dist/app.app not found!"
+          FILE_PATH=$(find . -type f -name "app.py" | head -n 1)
+          if [ -z "$FILE_PATH" ]; then
+            echo "❌ app.py introuvable"
             exit 1
           fi
+          echo "✅ Fichier trouvé : $FILE_PATH"
+          echo "file_path=$FILE_PATH" >> $GITHUB_OUTPUT
 
-          mkdir -p temp_dmg
-          cp -R dist/app.app temp_dmg/
+      - name: Build executable with PyInstaller
+        run: |
+          pyinstaller --onefile "${{ steps.find_app.outputs.file_path }}"
 
-          hdiutil create -volname "MachineTEST2" -srcfolder temp_dmg -ov -format UDZO dist-dmg/MachineTEST2.dmg
-
-          rm -rf temp_dmg
-
-      - name: Upload DMG artifact
+      - name: Upload executable
         uses: actions/upload-artifact@v4
         with:
-          name: MachineTEST2.dmg
-          path: dist-dmg/MachineTEST2.dmg
+          name: linux-executable
+          path: dist/*
