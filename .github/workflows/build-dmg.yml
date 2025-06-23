@@ -1,4 +1,4 @@
-name: Build Linux Executable
+name: Build .deb Package
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-deb:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,14 +20,11 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential xvfb
+          sudo gem install --no-document fpm
+
           python -m pip install --upgrade pip
-          
-          # Installe les dépendances du projet si requirements.txt existe
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
-          
-          # Installe PyQt5 et PyQtWebEngine explicitement
           pip install PyQt5 PyQtWebEngine pyinstaller
 
       - name: Find app.py
@@ -41,12 +38,40 @@ jobs:
           echo "✅ Fichier trouvé : $FILE_PATH"
           echo "file_path=$FILE_PATH" >> $GITHUB_OUTPUT
 
-      - name: Build executable with PyInstaller
+      - name: Build executable
         run: |
           pyinstaller --onefile "${{ steps.find_app.outputs.file_path }}"
 
-      - name: Upload executable
+      - name: Create .deb package with fpm
+        run: |
+          mkdir -p package/usr/local/bin
+          cp dist/* package/usr/local/bin/app
+
+          fpm -s dir -t deb \
+            -n mon-appli-pyqt \
+            -v 1.0.0 \
+            --license "MIT" \
+            --description "Une application PyQt5 avec PyQtWebEngine" \
+            --maintainer "TonNom <ton.email@example.com>" \
+            --url "https://github.com/toncompte/tonrepo" \
+            package/=/
+
+      - name: Test if the app runs (headless)
+        run: |
+          echo "🧪 Test de lancement de l'exécutable..."
+          chmod +x dist/*
+          timeout 5 xvfb-run -a ./dist/app &> output.log || true
+
+          if grep -q "Traceback" output.log; then
+            echo "❌ L'exécutable a levé une exception."
+            cat output.log
+            exit 1
+          else
+            echo "✅ Lancement réussi (aucune exception détectée)."
+          fi
+
+      - name: Upload .deb package
         uses: actions/upload-artifact@v4
         with:
-          name: linux-executable
-          path: dist/*
+          name: debian-package
+          path: ./*.deb
