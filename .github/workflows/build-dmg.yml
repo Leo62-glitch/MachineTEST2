@@ -1,48 +1,55 @@
-name: Test app.deb
+name: Build & Test .deb for PyQt App
 
 on:
   push:
-    branches: [main]
+    paths:
+      - '**.py'
   workflow_dispatch:
 
 jobs:
-  test-deb:
-    runs-on: ubuntu-latest
+  build-deb:
+    runs-on: ubuntu-20.04
 
     steps:
-      - name: Checkout repo
+      - name: 📥 Cloner le dépôt
         uses: actions/checkout@v3
 
-      - name: Find app.deb
-        id: find_deb
+      - name: 🔎 Chercher app.py dans tout le dépôt
         run: |
-          DEB_PATH=$(find . -type f -name "app.deb" | head -n 1)
-          if [ -z "$DEB_PATH" ]; then
-            echo "❌ Aucun app.deb trouvé"
+          APP_FILE=$(find . -name "app.py" | head -n 1)
+          if [ -z "$APP_FILE" ]; then
+            echo "❌ Aucun fichier app.py trouvé !"
             exit 1
           fi
-          echo "✅ app.deb trouvé : $DEB_PATH"
-          echo "deb_path=$DEB_PATH" >> $GITHUB_OUTPUT
+          echo "✅ Fichier trouvé : $APP_FILE"
+          echo "APP_PATH=$APP_FILE" >> $GITHUB_ENV
 
-      - name: Install dependencies for testing
+      - name: 🐍 Installer Python et dépendances
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb
+          sudo apt-get install -y python3-pyqt5 python3-pyqt5.qtwebengine python3-pip
+          pip3 install pyinstaller fpm
 
-      - name: Install app.deb
+      - name: 🔧 Construire l'exécutable avec PyInstaller
         run: |
-          sudo dpkg -i "${{ steps.find_deb.outputs.deb_path }}" || sudo apt-get install -f -y
+          pyinstaller --onefile "$APP_PATH" --name app
+          ls -lh dist/
 
-      - name: Test app launch (headless)
+      - name: 📦 Créer le .deb avec FPM
         run: |
-          echo "🧪 Test lancement de l'appli installée..."
-          # Remplace 'app' par le nom exact de ton exécutable installé (ex: 'monapp')
-          timeout 5 xvfb-run -a /usr/local/bin/app &> output.log || true
+          fpm -s dir -t deb -n mon-appli-pyqt -v 1.0.0 \
+            --prefix /usr/local/bin \
+            dist/app
 
-          if grep -q "Traceback" output.log; then
-            echo "❌ L'application a planté !"
-            cat output.log
-            exit 1
-          else
-            echo "✅ Lancement réussi (aucune exception détectée)"
-          fi
+      - name: 📁 Lister les fichiers générés
+        run: ls -lh *.deb
+
+      - name: 🧪 Installer le .deb généré
+        run: sudo dpkg -i mon-appli-pyqt_1.0.0_amd64.deb
+
+      - name: 🚀 Tester le lancement de l'application
+        run: |
+          echo "🧪 Test de lancement de l'exécutable..."
+          /usr/local/bin/app || { echo "❌ Erreur au lancement"; exit 1; }
+          echo "✅ Lancement réussi (aucune exception détectée)."
+
