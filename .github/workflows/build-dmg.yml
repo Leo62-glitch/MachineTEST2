@@ -1,4 +1,4 @@
-name: Build .deb Package
+name: Test app.deb
 
 on:
   push:
@@ -6,72 +6,43 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-deb:
+  test-deb:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
+      - name: Find app.deb
+        id: find_deb
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ruby ruby-dev build-essential xvfb
-          sudo gem install --no-document fpm
-
-          python -m pip install --upgrade pip
-          pip install PyQt5 PyQtWebEngine pyinstaller
-
-      - name: Find app.py
-        id: find_app
-        run: |
-          FILE_PATH=$(find . -type f -name "app.py" | head -n 1)
-          if [ -z "$FILE_PATH" ]; then
-            echo "❌ app.py introuvable"
+          DEB_PATH=$(find . -type f -name "app.deb" | head -n 1)
+          if [ -z "$DEB_PATH" ]; then
+            echo "❌ Aucun app.deb trouvé"
             exit 1
           fi
-          echo "✅ Fichier trouvé : $FILE_PATH"
-          echo "file_path=$FILE_PATH" >> $GITHUB_OUTPUT
+          echo "✅ app.deb trouvé : $DEB_PATH"
+          echo "deb_path=$DEB_PATH" >> $GITHUB_OUTPUT
 
-      - name: Build executable
+      - name: Install dependencies for testing
         run: |
-          pyinstaller --onefile "${{ steps.find_app.outputs.file_path }}"
+          sudo apt-get update
+          sudo apt-get install -y xvfb
 
-      - name: Create .deb package with fpm
+      - name: Install app.deb
         run: |
-          mkdir -p package/usr/local/bin
-          cp dist/* package/usr/local/bin/app
+          sudo dpkg -i "${{ steps.find_deb.outputs.deb_path }}" || sudo apt-get install -f -y
 
-          fpm -s dir -t deb \
-            -n mon-appli-pyqt \
-            -v 1.0.0 \
-            --license "MIT" \
-            --description "Une application PyQt5 avec PyQtWebEngine" \
-            --maintainer "TonNom <ton.email@example.com>" \
-            --url "https://github.com/toncompte/tonrepo" \
-            package/=/
-
-      - name: Test if the app runs (headless)
+      - name: Test app launch (headless)
         run: |
-          echo "🧪 Test de lancement de l'exécutable..."
-          chmod +x dist/*
-          timeout 5 xvfb-run -a ./dist/app &> output.log || true
+          echo "🧪 Test lancement de l'appli installée..."
+          # Remplace 'app' par le nom exact de ton exécutable installé (ex: 'monapp')
+          timeout 5 xvfb-run -a /usr/local/bin/app &> output.log || true
 
           if grep -q "Traceback" output.log; then
-            echo "❌ L'exécutable a levé une exception."
+            echo "❌ L'application a planté !"
             cat output.log
             exit 1
           else
-            echo "✅ Lancement réussi (aucune exception détectée)."
+            echo "✅ Lancement réussi (aucune exception détectée)"
           fi
-
-      - name: Upload .deb package
-        uses: actions/upload-artifact@v4
-        with:
-          name: debian-package
-          path: ./*.deb
